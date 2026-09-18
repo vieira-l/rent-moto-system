@@ -18,9 +18,9 @@ const loginLimiter = rateLimit({
 
 const isProd = process.env.NODE_ENV === "production";
 const cookieOpts = {
-  httpOnly: true,          // JS do navegador não consegue ler o cookie (mitiga XSS roubando token)
-  secure: isProd,          // exige HTTPS em produção
-  sameSite: "lax",         // mitiga CSRF básico
+  httpOnly: true,
+  secure: true,
+  sameSite: "none",
   maxAge: 8 * 60 * 60 * 1000,
 };
 
