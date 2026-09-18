@@ -7,7 +7,9 @@ if (!JWT_SECRET) {
 }
 
 export function requireAuth(req, res, next) {
-  const token = req.cookies?.token;
+  const header = req.headers.authorization || "";
+  const bearer = header.startsWith("Bearer ") ? header.slice(7) : null;
+  const token = bearer || req.cookies?.token;
   if (!token) return res.status(401).json({ error: "Não autenticado." });
   try {
     const payload = jwt.verify(token, JWT_SECRET);
