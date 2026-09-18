@@ -18,9 +18,9 @@ const loginLimiter = rateLimit({
 
 const isProd = process.env.NODE_ENV === "production";
 const cookieOpts = {
-  httpOnly: true,
-  secure: true,
-  sameSite: "none",
+  httpOnly: true,          // JS do navegador não consegue ler o cookie (mitiga XSS roubando token)
+  secure: isProd,          // exige HTTPS em produção
+  sameSite: "lax",         // mitiga CSRF básico
   maxAge: 8 * 60 * 60 * 1000,
 };
 
@@ -40,7 +40,7 @@ router.post("/login", loginLimiter, async (req, res) => {
   const token = signToken(user);
   res.cookie("token", token, cookieOpts);
   await logAction(user.id, "LOGIN", "User", user.id, null);
-  res.json({ id: user.id, name: user.name, username: user.username, role: user.role });
+  res.json({ id: user.id, name: user.name, username: user.username, role: user.role, token });
 });
 
 router.post("/logout", requireAuth, async (req, res) => {
