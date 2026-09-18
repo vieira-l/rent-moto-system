@@ -1,0 +1,214 @@
+// Postgres em todos os ambientes (local via Docker, produção via Supabase/Neon/Railway).
+// Usar o mesmo banco em dev e produção evita bugs de "funcionava no SQLite, quebrou no Postgres".
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  EMPLOYEE
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  username     String   @unique
+  passwordHash String
+  role         Role     @default(EMPLOYEE)
+  createdAt    DateTime @default(now())
+  auditLogs    AuditLog[]
+}
+
+model Motorcycle {
+  id                String    @id @default(cuid())
+  brand             String
+  model             String
+  year              Int?
+  color             String?
+  plate             String    @unique
+  renavam           String?
+  chassis           String?
+  acquisitionDate   DateTime?
+  acquisitionKm     Int       @default(0)
+  currentKm         Int       @default(0)
+  acquisitionValue  Float     @default(0)
+  marketValue       Float     @default(0)
+  status            String    @default("Disponível")
+  lastLicensingDate DateTime?
+  nextLicensingDue  DateTime?
+  insurer           String?
+  insuranceDue      DateTime?
+  notes             String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  contracts          Contract[]
+  mileageRecords     MileageRecord[]
+  maintenanceRecords MaintenanceRecord[]
+  expenses           Expense[]
+  revenues           Revenue[]
+  incidents          Incident[]
+}
+
+model Renter {
+  id               String    @id @default(cuid())
+  name             String
+  cpf              String?   @unique
+  birthDate        DateTime?
+  phone            String?
+  whatsapp         String?
+  email            String?
+  address          String?
+  cnh              String?
+  cnhCategory      String?
+  cnhValidity      DateTime?
+  registrationDate DateTime  @default(now())
+  notes            String?
+  status           String    @default("Ativo")
+
+  contracts Contract[]
+  payments  Payment[]
+  revenues  Revenue[]
+  incidents Incident[]
+}
+
+model Contract {
+  id             String   @id @default(cuid())
+  renterId       String
+  motorcycleId   String
+  startDate      DateTime
+  endDate        DateTime
+  dailyValue     Float    @default(0)
+  weeklyValue    Float    @default(0)
+  monthlyValue   Float    @default(0)
+  deposit        Float    @default(0)
+  dueDay         String?
+  periodicity    String   @default("Semanal")
+  kmLimit        Int      @default(0)
+  kmExcessValue  Float    @default(0)
+  rules          String?
+  notes          String?
+  status         String   @default("Ativo")
+
+  renter     Renter     @relation(fields: [renterId], references: [id])
+  motorcycle Motorcycle @relation(fields: [motorcycleId], references: [id])
+  payments   Payment[]
+}
+
+model Payment {
+  id             String    @id @default(cuid())
+  contractId     String
+  renterId       String
+  motorcycleId   String
+  dueDate        DateTime
+  paymentDate    DateTime?
+  expectedValue  Float
+  paidValue      Float     @default(0)
+  paymentMethod  String?
+  status         String?
+  notes          String?
+
+  contract Contract @relation(fields: [contractId], references: [id])
+  renter   Renter   @relation(fields: [renterId], references: [id])
+}
+
+model MaintenanceType {
+  id               String @id @default(cuid())
+  name             String
+  kmInterval       Int    @default(0)
+  timeIntervalDays Int    @default(0)
+
+  records MaintenanceRecord[]
+}
+
+model MaintenanceRecord {
+  id           String   @id @default(cuid())
+  motorcycleId String
+  typeId       String
+  date         DateTime
+  km           Int
+  partsCost    Float    @default(0)
+  laborCost    Float    @default(0)
+  totalCost    Float    @default(0)
+  vendor       String?
+  notes        String?
+  nextKm       Int?
+  nextDate     DateTime?
+
+  motorcycle Motorcycle      @relation(fields: [motorcycleId], references: [id])
+  type       MaintenanceType @relation(fields: [typeId], references: [id])
+}
+
+model MileageRecord {
+  id           String   @id @default(cuid())
+  motorcycleId String
+  date         DateTime
+  km           Int
+  previousKm   Int
+  kmDriven     Int
+  recordedBy   String?
+  notes        String?
+
+  motorcycle Motorcycle @relation(fields: [motorcycleId], references: [id])
+}
+
+model Expense {
+  id            String   @id @default(cuid())
+  date          DateTime
+  category      String
+  motorcycleId  String?
+  vendor        String?
+  value         Float
+  paymentMethod String?
+  notes         String?
+
+  motorcycle Motorcycle? @relation(fields: [motorcycleId], references: [id])
+}
+
+model Revenue {
+  id            String   @id @default(cuid())
+  date          DateTime
+  category      String
+  motorcycleId  String?
+  renterId      String?
+  value         Float
+  paymentMethod String?
+  notes         String?
+
+  motorcycle Motorcycle? @relation(fields: [motorcycleId], references: [id])
+  renter     Renter?     @relation(fields: [renterId], references: [id])
+}
+
+model Incident {
+  id           String   @id @default(cuid())
+  motorcycleId String
+  renterId     String?
+  date         DateTime
+  type         String
+  value        Float    @default(0)
+  responsible  String?
+  status       String   @default("Aberto")
+  description  String?
+
+  motorcycle Motorcycle @relation(fields: [motorcycleId], references: [id])
+  renter     Renter?    @relation(fields: [renterId], references: [id])
+}
+
+// Auditoria: quem fez o quê e quando (item 20 do checklist de segurança).
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String
+  entity    String
+  entityId  String?
+  detail    String?
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+}
